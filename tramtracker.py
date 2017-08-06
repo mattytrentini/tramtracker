@@ -41,20 +41,20 @@
 # *     >>> tramtracker.get_next_times(my_stop)                              *
 # *     {72: 2.564150317509969, 1: 4.964150631427765, ...}                   *
 # ****************************************************************************
-import json, re, time
+import json, ure, time
 
 TT_URL = "http://www.tramtracker.com/Controllers/GetNextPredictionsForStop.ashx"
 
 def _call_tt(stop=1421, route=19):
-    import urllib
-    page = urllib.urlopen(TT_URL +
+    import urequests
+    page = urequests.get(TT_URL +
                     "?stopNo=%s&routeNo=%s&isLowFloor=false" % (stop, route))
-    return page.read()
+    return page.text
 
-def _get_minutes_from_date_string(time_string):
-    time_string = re.match(r'.*(\d{13}).*',
-                str(time_string)).group(1)
-    seconds_until_tram = int(time_string)/1000. - time.time()
+def _get_minutes_from_date_string(time_str):
+    time_string = ure.match('.*(' + (r'\d' * 13) + ').*', str(time_str)).group(1)
+    seconds_until_tram = int(time_string)/1000. - (time.time() + 946684800)
+    print(time_str, time_string, seconds_until_tram)
     return (seconds_until_tram/60)
 
 def get_next_time(stop=1421, route=19):
@@ -84,43 +84,9 @@ def get_next_times(stop):
     for resp in json_obj:
         tram = resp['InternalRouteNo']
         time = _get_minutes_from_date_string(resp['PredictedArrivalDateTime'])
-        if trams.has_key(tram):
+        if tram in trams:
             if trams[tram] > time:
                 trams[tram] = time
         else:
             trams[tram] = time
     return trams
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description='Get the time to the next '
-                                                 'tram from TramTracker, '
-                                                 'courtesy of Yarra Trams.\n\n'
-                                                 'For more information: '
-                                                 'http://yarratrams.com.au\n\n'
-                                                 'Usage: soapytracker.py stop [route]')
-    parser.add_argument('stopID', metavar='stopID', type=int,
-                   help='the stop id (see web or official app)')
-    parser.add_argument('route', metavar='route', type=int, nargs='?',
-                   help='the tram route number')
-    parser.add_argument('-q', '--quiet', help='print raw time only',
-                   default=False, action='store_true')
-
-
-    args = parser.parse_args()
-
-    if(args.route):
-        mins = get_next_time(args.stopID, args.route)
-        if(args.quiet):
-            print "%.1f" % mins
-        else:
-            print("Next %d tram in %d minutes." % (args.route, mins))
-    else:
-        times = get_next_times(args.stopID)
-        if not args.quiet:
-            print("Next trams: ")
-        for tram, minutes in times.iteritems():
-            if args.quiet:
-                print("%d: %d" % (tram, minutes))
-            else:
-                print(" %2d: %2d minutes" % (tram, minutes))
